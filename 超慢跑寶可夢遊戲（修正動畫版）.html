@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>超慢跑寶可夢</title>
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-family: Arial, sans-serif;
+        background: #f0f0f0;
+    }
+    
+    #gameContainer {
+        display: none;
+        width: 100%;
+        max-width: 800px;
+        height: 600px;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(to bottom, #87CEEB 0%, #e0e0e0 100%);
+        perspective: 1000px;
+    }
+    
+    .road-container {
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%) rotateX(60deg);
+        transform-origin: 50% 100%;
+        width: 1000px;
+        height: 800px;
+    }
+    
+    .road {
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 300px;
+        height: 100%;
+        background: repeating-linear-gradient(
+            to bottom,
+            #666 0px,
+            #666 100px,
+            #999 100px,
+            #999 200px
+        );
+        animation: moveRoad 2s linear infinite;
+    }
+    
+    @keyframes moveRoad {
+        from { background-position: 0 0; }
+        to { background-position: 0 200px; }
+    }
+    
+    .grass {
+        position: absolute;
+        bottom: 0;
+        width: 400px;
+        height: 100%;
+        background: #4CAF50;
+    }
+    
+    .grass-left {
+        right: 50%;
+        margin-right: 150px;
+    }
+    
+    .grass-right {
+        left: 50%;
+        margin-left: 150px;
+    }
+    
+    .tree {
+        position: absolute;
+        transform-style: preserve-3d;
+        z-index: 1;
+    }
+    
+    .tree-top {
+        width: 60px;
+        height: 90px;
+        background: linear-gradient(to bottom, #1a4011, #2d5016);
+        clip-path: polygon(20% 100%, 50% 0%, 80% 100%);
+        position: absolute;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+    
+    .tree-trunk {
+        width: 20px;
+        height: 30px;
+        background: linear-gradient(to right, #3b2a1c, #4b3621, #3b2a1c);
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+    
+    @keyframes approachTree {
+        0% {
+            transform: translate(-50%, 0) scale(0.2);
+            opacity: 0;
+        }
+        20% {
+            opacity: 1;
+        }
+        100% {
+            transform: translate(-50%, 600px) scale(1.5);
+            opacity: 0;
+        }
+    }
+    
+    .pokemon {
+        position: absolute;
+        width: 150px;
+        height: 150px;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        cursor: pointer;
+        z-index: 10;
+    }
+    
+    @keyframes approachPokemon {
+        0% {
+            top: 40%;
+            transform: translate(-50%, -50%) scale(0.2);
+        }
+        80% {
+            top: 50%;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        100% {
+            top: 50%;
+            transform: translate(-50%, -50%) scale(1);
+        }
+    }
+    
+    .pokemon.approaching {
+        animation: approachPokemon 3s ease-in forwards;
+    }
+    
+    .pokemon.warning {
+        animation: pokemonBlink 0.5s infinite;
+        top: 50%;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    
+    @keyframes pokemonBlink {
+        0% { opacity: 1; }
+        50% { opacity: 0.3; }
+        100% { opacity: 1; }
+    }
+    
+    .pokemon.caught {
+        animation: catchPokemon 0.5s ease-out forwards;
+    }
+    
+    @keyframes catchPokemon {
+        0% {
+            transform: translate(-50%, -50%) scale(1) rotate(0deg);
+        }
+        100% {
+            transform: translate(-50%, -50%) scale(0) rotate(360deg);
+        }
+    }
+    
+    #setupScreen {
+        text-align: center;
+        padding: 20px;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        margin: 20px;
+    }
+    
+    #caughtPokemon {
+        position: fixed;
+        top: 70px;
+        right: 20px;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    #countdown {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 48px;
+        color: #333;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 20px 40px;
+        border-radius: 10px;
+        display: none;
+    }
+    
+    #timer {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 24px;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 10px 20px;
+        border-radius: 10px;
+        z-index: 100;
+    }
+ #bpmControl {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 10px;
+        border-radius: 10px;
+        z-index: 100;
+    }
+    
+    #bpmControl button {
+        margin: 0 5px;
+        padding: 5px 10px;
+        cursor: pointer;
+    }
+</style>
+</head>
+<body>
+<div id="setupScreen">
+    <h1>超慢跑寶可夢</h1>
+    <div class="settings-group">
+        <label for="duration">選擇跑步時間：</label>
+        <select id="duration">
+            <option value="5">5分鐘</option>
+            <option value="10">10分鐘</option>
+            <option value="15">15分鐘</option>
+            <option value="20">20分鐘</option>
+            <option value="30">30分鐘</option>
+        </select>
+    </div>
+    <div class="settings-group">
+        <label for="initialBpm">起始 BPM：</label>
+        <input type="number" id="initialBpm" value="180" min="30" max="180">
+    </div>
+    <button onclick="startGame()">開始遊戲</button>
+</div>
+
+<div id="countdown">3</div>
+
+<div id="gameContainer">
+    <div id="timer">00:00</div>
+    <div id="bpmControl">
+        <span id="currentBpm">180 BPM</span>
+        <button onclick="adjustBPM(-5)">-</button>
+        <button onclick="adjustBPM(5)">+</button>
+    </div>
+    <div class="road-container">
+        <div class="grass grass-left"></div>
+        <div class="road"></div>
+        <div class="grass grass-right"></div>
+    </div>
+    <div id="caughtPokemon">已捕捉的寶可夢：</div>
+</div>
+
+<script>
+    const pokemonList = [
+        'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png',
+        'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png',
+        'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png',
+        'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png',
+        'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/151.png'
+    ];
+    
+    let gameTime = 0;
+    let timer;
+    let caughtPokemons = [];
+    let spawnTimer;
+    let currentPokemon = null;
+    let pokemonCountdown = null;
+    let treeSpawnInterval;
+    
+    function startTreeSpawning() {
+        // 每2秒生成一棵新樹
+        treeSpawnInterval = setInterval(createTree, 2000);
+    }
+    
+    function createTree() {
+        const tree = document.createElement('div');
+        tree.className = 'tree';
+        
+        const treeTop = document.createElement('div');
+        treeTop.className = 'tree-top';
+        
+        const treeTrunk = document.createElement('div');
+        treeTrunk.className = 'tree-trunk';
+        
+        tree.appendChild(treeTop);
+        tree.appendChild(treeTrunk);
+        
+        // 隨機決定樹出現在左側還是右側
+        const isLeft = Math.random() < 0.5;
+        const offset = 150 + Math.random() * 200;
+        
+        tree.style.position = 'absolute';
+        tree.style.left = isLeft ? `${50 - offset/10}%` : `${50 + offset/10}%`;
+        tree.style.bottom = '100%';
+        tree.style.animation = `approachTree 4s linear forwards`;
+        
+        document.querySelector('.road-container').appendChild(tree);
+        
+        setTimeout(() => {
+            if (tree && tree.parentElement) {
+                tree.remove();
+            }
+        }, 4000);
+    }
+    
+    function spawnPokemon() {
+        if (currentPokemon) return;
+        
+        const pokemon = document.createElement('img');
+        const randomIndex = Math.floor(Math.random() * (pokemonList.length - 1));
+        pokemon.src = pokemonList[randomIndex];
+        pokemon.classList.add('pokemon', 'approaching');
+        pokemon.onclick = () => catchPokemon(pokemon, randomIndex);
+        
+        gameContainer.appendChild(pokemon);
+        currentPokemon = pokemon;
+        
+        let timeLeft = 10;
+        
+        setTimeout(() => {
+            pokemonCountdown = setInterval(() => {
+                timeLeft--;
+                
+                if (timeLeft <= 3) {
+                    pokemon.classList.add('warning');
+                }
+                
+                if (timeLeft <= 0) {
+                    clearInterval(pokemonCountdown);
+                    if (currentPokemon && currentPokemon.parentElement) {
+                        currentPokemon.remove();
+                        currentPokemon = null;
+                    }
+                }
+            }, 1000);
+        }, 3000);
+    }
+    
+    function startGame() {
+        const duration = parseInt(document.getElementById('duration').value) * 60;
+        gameTime = duration;
+        
+        document.getElementById('setupScreen').style.display = 'none';
+        document.getElementById('countdown').style.display = 'block';
+        
+        let count = 3;
+        const countdownInterval = setInterval(() => {
+            document.getElementById('countdown').textContent = count;
+            if (count === 0) {
+                clearInterval(countdownInterval);
+                document.getElementById('countdown').style.display = 'none';
+                document.getElementById('gameContainer').style.display = 'block';
+                startTreeSpawning();
+                startGameplay(duration);
+            }
+            count--;
+        }, 1000);
+    }
+    
+    function formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+    }
+    
+    function catchPokemon(pokemon, index) {
+        clearInterval(pokemonCountdown);
+        pokemon.classList.remove('warning');
+        pokemon.classList.add('caught');
+        currentPokemon = null;
+        
+        setTimeout(() => {
+            if (pokemon.parentElement) {
+                pokemon.remove();
+            }
+        }, 500);
+        
+        caughtPokemons.push(pokemonList[index]);
+        updateCaughtPokemonDisplay();
+    }
+    
+    function updateCaughtPokemonDisplay() {
+        const display = document.getElementById('caughtPokemon');
+        display.innerHTML = '已捕捉的寶可夢：<br>';
+        caughtPokemons.forEach(pokemonUrl => {
+            const img = document.createElement('img');
+            img.src = pokemonUrl;
+            img.style.width = '50px';
+            img.style.height = '50px';
+            display.appendChild(img);
+        });
+    }
+    
+    function startGameplay(duration) {
+        spawnTimer = setInterval(spawnPokemon, 60000); // 每15秒產生一個寶可夢
+        spawnPokemon(); // 立即產生第一個寶可夢
+        
+        timer = setInterval(() => {
+            gameTime--;
+            document.getElementById('timer').textContent = formatTime(gameTime);
+            
+            if (gameTime <= 0) {
+                endGame();
+            }
+        }, 1000);
+    }
+    
+      let currentBPM = 60;
+    let metronomeInterval;
+let isEvenBeat = true; // 用來追踪是否為偶數拍
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    
+  
+function playMetronomeSound() {
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // 根據左右腳設定不同的頻率
+    if (isEvenBeat) {
+        // 右腳：較低的音
+        oscillator.frequency.value = 400;
+    } else {
+        // 左腳：稍高的音
+        oscillator.frequency.value = 500;
+    }
+    
+    oscillator.type = 'sine';
+    
+    // 使用 ADSR 包絡線讓聲音更自然
+    const now = audioContext.currentTime;
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(0.2, now + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+    gainNode.gain.linearRampToValueAtTime(0, now + 0.2);
+    
+    oscillator.start(now);
+    oscillator.stop(now + 0.2);
+    
+    isEvenBeat = !isEvenBeat; // 切換左右腳
+}
+
+function startMetronome(bpm) {
+    if (metronomeInterval) {
+        clearInterval(metronomeInterval);
+    }
+    
+    isEvenBeat = true; // 重置為右腳開始
+    const interval = Math.floor(60000 / bpm);
+    metronomeInterval = setInterval(() => {
+        playMetronomeSound();
+    }, interval);
+}
+
+function adjustBPM(change) {
+    currentBPM = Math.max(30, Math.min(180, currentBPM + change));
+    document.getElementById('currentBpm').textContent = `${currentBPM} BPM`;
+    startMetronome(currentBPM);
+}
+    
+    function startGame() {
+        const duration = parseInt(document.getElementById('duration').value) * 60;
+        currentBPM = parseInt(document.getElementById('initialBpm').value);
+        gameTime = duration;
+        
+        document.getElementById('setupScreen').style.display = 'none';
+        document.getElementById('countdown').style.display = 'block';
+        
+        let count = 3;
+        const countdownInterval = setInterval(() => {
+            document.getElementById('countdown').textContent = count;
+            if (count === 0) {
+                clearInterval(countdownInterval);
+                document.getElementById('countdown').style.display = 'none';
+                document.getElementById('gameContainer').style.display = 'block';
+                startTreeSpawning();
+                startGameplay(duration);
+                startMetronome(currentBPM);
+            }
+            count--;
+        }, 1000);
+    }
+    
+    function endGame() {
+        clearInterval(timer);
+        clearInterval(spawnTimer);
+        clearInterval(treeSpawnInterval);
+        clearInterval(metronomeInterval);
+        if (pokemonCountdown) {
+            clearInterval(pokemonCountdown);
+        }
+        
+        if (currentPokemon && currentPokemon.parentElement) {
+            currentPokemon.remove();
+        }
+        
+        const finalPokemon = document.createElement('img');
+        finalPokemon.src = pokemonList[pokemonList.length - 1];
+        finalPokemon.classList.add('pokemon', 'approaching');
+        finalPokemon.onclick = () => catchPokemon(finalPokemon, pokemonList.length - 1);
+        gameContainer.appendChild(finalPokemon);
+        
+        setTimeout(() => {
+            alert('遊戲結束！');
+            document.getElementById('gameContainer').style.display = 'none';
+            document.getElementById('setupScreen').style.display = 'block';
+        }, 5000);
+    }
+</script>
+</body>
+</html>
